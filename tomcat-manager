@@ -1,0 +1,212 @@
+#!/bin/bash
+
+# Shell client of Tomcat's Manager App's text interface, 
+# http://tomcat.apache.org/tomcat-7.0-doc/manager-howto.html
+#
+# If invoked without arguments it drops into an interactive subshell where the commands
+# are directly defined and commandline completion of webapp context paths are supported.
+#
+
+# REQUIRED: This script requires a tomcat-user with role 'manager-script', e.g.:
+#
+#    $ grep manager-script $CATALINA_HOME/conf/tomcat-users.xml
+#    <role rolename="manager-script"/>
+#    <user name="manager-script" password="manager-script" roles="manager-script"/>
+#
+#
+# OPTIONAL: The tomcat manager should not be publicly accessible, so it is recommended
+# to restrict its access to localhost only:
+#
+#    $ cat $CATALINA_HOME/conf/Catalina/localhost/manager.xml
+#    <?xml version='1.0' encoding='utf-8'?>
+#    <Context privileged="true">
+#       <Valve className="org.apache.catalina.valves.RemoteAddrValve"
+#                  allow="127\.\d+\.\d+\.\d+|::1|0:0:0:0:0:0:0:1"/>
+#    </Context>
+#
+
+
+MANAGER_URL="http://localhost:8080/manager/text"
+MANAGER_USER=manager-script
+MANAGER_PASS=manager-script
+
+
+CURL="curl -s --user $MANAGER_USER:$MANAGER_PASS"
+SCRIPT_NAME=${0##*/}
+
+##
+function help {
+
+   cat <<EOF
+USAGE:
+
+   $SCRIPT_NAME
+   $SCRIPT_NAME COMMAND [OPTIONS ...]
+
+COMMANDS:
+
+   list
+      List the context paths of all currently installed web applications.
+
+   start CONTEXT_PATH ...
+      Start the web application attached to CONTEXT_PATH.
+
+   stop CONTEXT_PATH ...
+      Stop the web application attached to CONTEXT_PATH.
+
+   reload CONTEXT_PATH ...
+      Reload the Java classes and resources for the web application attached to
+      CONTEXT_PATH. This is not equivalent to a stop followed by a start.
+
+   deploy WARFILE [CONTEXT_PATH]
+      Install and start a new web application attached to CONTEXT_PATH, based on the
+      contents of the web application archive found at the specified path WARFILE.
+
+      If CONTEXT_PATH is not specified then it is constructed from WARFILE, e.g.
+      WARFILE=/tmp/webapp.war -> CONTEXT_PATH=/webapp
+
+   undeploy CONTEXT_PATH ...
+      Shutdown and remove the web application attached to CONTEXT_PATH, and remove
+      the underlying WAR file or document base directory.
+
+   resources
+      Enumerate the available global JNDI resources.
+
+   serverinfo
+      Display system OS and JVM properties.
+
+   expire CONTEXT_PATH [IDLE]
+      List session idle timeinformation about the web application attached to context
+      path CONTEXT_PATH. If IDLE is specified, expire sessions for the CONTEXT_PATH
+      which were idle for at least IDLE minutes.
+
+   help
+      Print this help.
+
+EOF
+}
+
+##
+function deploy {
+   local war path tail
+
+   war="$1"
+   path="$2"
+
+   if [ -z "$path" ]
+   then
+      tail=${1##*/}
+      path="/${tail%.war}"
+   fi
+
+   $CURL --upload-file "$war" "$MANAGER_URL/deploy?path=$path"
+}
+
+##
+function expire {
+   local path="path=$1"
+
+   local idle=
+   if [ -n "$2" ]
+   then
+      local idle="&idle=$2"
+   fi
+
+   $CURL "$MANAGER_URL/expire?$path$idle"
+}
+
+##
+function func_container {
+   eval "function $1 { $CURL $MANAGER_URL/$1; }"
+   export -f $1
+}
+
+##
+function func_context {
+   eval "function $1 { for path in "\$@"; do $CURL $MANAGER_URL/$1?path=\$path; done; }"
+   export -f $1
+}
+
+##
+function list {
+   $CURL "$MANAGER_URL/list" | awk -F: '\
+      NR==1 && /^FAIL/ {print $0; exit}\
+      NR==2 {printf "%-30s %-7s %10s %-s\n", "context_path", "status ", "sessions", "docbase"}\
+      NR==2 {printf "%-30s %-7s %10s %-s\n", "------------", "-------", "--------", "-------"}\
+      NR >1 {printf "%-30s %-7s %10s %-s\n", $1, $2, $3, $4}'
+}
+
+##
+function contexts {
+   $CURL "$MANAGER_URL/list" | awk -F: '\
+      NR==1 && /^FAIL/ {print $0; exit}\
+      NR >1 {printf "%s ", $1}'
+}
+
+##
+function contexts_complete {
+   COMPREPLY=()
+   local cur="${COMP_WORDS[COMP_CWORD]}"
+   COMPREPLY=( $(compgen -W "$(contexts)" -- ${cur}) )
+}
+
+##
+function shell {
+   export -f contexts contexts_complete list expire deploy help
+
+   export MANAGER_USER MANAGER_PASS MANAGER_URL CURL SCRIPT_NAME
+   export PS1="${SCRIPT_NAME}> "
+
+   RC_FILE=`mktemp -q /tmp/$SCRIPT_NAME.XXXXXX`
+   if [ $? -ne 0 ]; then
+      echo "$0: Can't create temp file, exiting..."
+      exit 1
+   fi
+   trap "rm $RC_FILE" EXIT
+
+   # completion is not inherited from the parent bash to the child bash
+   cat >> $RC_FILE <<<"complete -F contexts_complete expire start stop reload undeploy"
+
+   bash --rcfile "$RC_FILE" -i
+}
+
+func_container resources
+func_container serverinfo
+func_context start
+func_context stop
+func_context reload
+func_context undeploy
+
+
+if [ $# -eq 0 ]
+then
+   echo "Type 'help' to show list of commands."
+   shell
+else
+   eval "$@"
+fi
+
+
+# Copyright (c) 2014, Jess Thrysoee
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without modification,
+# are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this
+# list of conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+# this list of conditions and the following disclaimer in the documentation and/or
+# other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+# ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+# ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
