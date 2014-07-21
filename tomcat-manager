@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Shell client of Tomcat's Manager App's text interface, 
+# Shell client of Tomcat's Manager App's text interface,
 # http://tomcat.apache.org/tomcat-7.0-doc/manager-howto.html
 #
 # If invoked without arguments it drops into an interactive subshell where the commands
