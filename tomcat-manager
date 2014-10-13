@@ -45,6 +45,8 @@ USAGE:
 
 COMMANDS:
 
+   ---
+
    list
       List the context paths of all currently installed web applications.
 
@@ -79,6 +81,25 @@ COMMANDS:
       List session idle timeinformation about the web application attached to context
       path CONTEXT_PATH. If IDLE is specified, expire sessions for the CONTEXT_PATH
       which were idle for at least IDLE minutes.
+
+   ---
+
+   startup
+      Start Catalina.
+
+   debug
+      Start Catalina under JPDA debugger.
+
+   shutdown
+      Stop Catalina, waiting up to 5 seconds for the process to end.
+
+   kill [-SIGNAL]
+      Kill Catalina with 'kill -TERM' or if -SIGNAL is specified .e.g. 'kill -9'
+
+   version
+      What version of tomcat are you running?
+
+   ---
 
    help
       Print this help.
@@ -144,6 +165,19 @@ function contexts {
 }
 
 ##
+function func_catalina {
+   local cmd=$1
+   shift
+   eval "function $cmd { \$CATALINA_HOME/bin/catalina.sh "$@" || echo 'The CATALINA_HOME environment variable is not defined correctly'; }"
+   export -f $cmd
+}
+
+##
+function kill {
+   ps -ef | awk '/[o]rg.apache.catalina.startup.Bootstrap/ {print $2}' | xargs kill "$@"
+}
+
+##
 function contexts_complete {
    COMPREPLY=()
    local cur="${COMP_WORDS[COMP_CWORD]}"
@@ -152,7 +186,7 @@ function contexts_complete {
 
 ##
 function shell {
-   export -f contexts contexts_complete list expire deploy help
+   export -f contexts contexts_complete list expire deploy help kill
 
    export MANAGER_USER MANAGER_PASS MANAGER_URL CURL SCRIPT_NAME
    export PS1="${SCRIPT_NAME}> "
@@ -176,6 +210,11 @@ func_context start
 func_context stop
 func_context reload
 func_context undeploy
+
+func_catalina startup start
+func_catalina debug jpda start
+func_catalina shutdown stop
+func_catalina version version
 
 
 if [ $# -eq 0 ]
