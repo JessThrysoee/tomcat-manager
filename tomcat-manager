@@ -17,14 +17,17 @@
 # OPTIONAL: The tomcat manager should not be publicly accessible, so it is recommended
 # to restrict its access to localhost only:
 #
-#    $ cat $CATALINA_HOME/conf/Catalina/localhost/manager.xml
+#    $ cat $CATALINA_BASE/conf/Catalina/localhost/manager.xml
 #    <?xml version='1.0' encoding='utf-8'?>
-#    <Context privileged="true">
-#       <Valve className="org.apache.catalina.valves.RemoteAddrValve"
-#                  allow="127\.\d+\.\d+\.\d+|::1|0:0:0:0:0:0:0:1"/>
+#
+#    <Context antiResourceLocking="false
+#                        "docBase="${catalina.home}/webapps/manager"
+#                      privileged="true">
+#
+#         <Valve className="org.apache.catalina.valves.RemoteAddrValve"
+#                    allow="127\.\d+\.\d+\.\d+|::1|0:0:0:0:0:0:0:1"/>
 #    </Context>
 #
-
 
 MANAGER_URL="http://localhost:8080/manager/text"
 MANAGER_USER=manager-script
