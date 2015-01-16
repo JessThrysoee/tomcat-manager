@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Shell client of Tomcat's Manager App's text interface,
 # http://tomcat.apache.org/tomcat-7.0-doc/manager-howto.html
