@@ -9,7 +9,7 @@
 
 # REQUIRED: This script requires a tomcat-user with role 'manager-script', e.g.:
 #
-#    $ grep manager-script $CATALINA_HOME/conf/tomcat-users.xml
+#    $ grep manager-script $CATALINA_BASE/conf/tomcat-users.xml
 #    <role rolename="manager-script"/>
 #    <user name="manager-script" password="manager-script" roles="manager-script"/>
 #
@@ -99,6 +99,9 @@ COMMANDS:
    kill [-SIGNAL]
       Kill Catalina with 'kill -TERM' or if -SIGNAL is specified .e.g. 'kill -9'
 
+   log [FILE...]
+      Tail all or specific FILE's files in \$CATALINA_BASE/logs.
+
    version
       What version of tomcat are you running?
 
@@ -181,6 +184,23 @@ function kill {
 }
 
 ##
+function log {
+   if [[ $# == 0 ]]
+   then
+      tail -F $CATALINA_BASE/logs/*
+   else
+      local files=""
+      echo "$@"
+      for file in "$@"
+      do
+         files+="$CATALINA_BASE/logs/$file"
+      done
+      echo "$files"
+      tail -F $files
+   fi
+}
+
+##
 function contexts_complete {
    COMPREPLY=()
    local cur="${COMP_WORDS[COMP_CWORD]}"
@@ -188,8 +208,15 @@ function contexts_complete {
 }
 
 ##
+function log_complete {
+   COMPREPLY=()
+   local cur="${COMP_WORDS[COMP_CWORD]}"
+   COMPREPLY=( $(compgen -W "$(ls -rt $CATALINA_BASE/logs)" -- ${cur}) )
+}
+
+##
 function shell {
-   export -f contexts contexts_complete list expire deploy help kill
+   export -f contexts contexts_complete list expire deploy help kill log log_complete
 
    export MANAGER_USER MANAGER_PASS MANAGER_URL CURL SCRIPT_NAME
    export PS1="${SCRIPT_NAME}> "
@@ -203,6 +230,7 @@ function shell {
 
    # completion is not inherited from the parent bash to the child bash
    cat >> $RC_FILE <<<"complete -F contexts_complete expire start stop reload undeploy"
+   cat >> $RC_FILE <<<"complete -F log_complete log"
 
    bash --rcfile "$RC_FILE" -i
 }
