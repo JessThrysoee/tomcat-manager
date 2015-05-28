@@ -97,7 +97,10 @@ COMMANDS:
       Stop Catalina, waiting up to 5 seconds for the process to end.
 
    kill [-SIGNAL]
-      Kill Catalina with 'kill -TERM' or if -SIGNAL is specified .e.g. 'kill -9'
+      Kill Catalina with 'kill -TERM' or if -SIGNAL is specified e.g. 'kill -9'
+
+   ps
+      Catalina process status
 
    log [FILE...]
       Tail all or specific FILE's files in \$CATALINA_BASE/logs.
@@ -180,7 +183,14 @@ function func_catalina {
 
 ##
 function kill {
-   ps -ef | awk '/[o]rg.apache.catalina.startup.Bootstrap/ {print $2}' | xargs kill "$@"
+   local signal="${1:--TERM}"
+
+   pkill $signal -f 'org.apache.catalina.startup.Bootstrap'
+}
+
+##
+function ps {
+   pgrep -f 'org.apache.catalina.startup.Bootstrap' | xargs ps -f -p
 }
 
 ##
@@ -216,7 +226,7 @@ function log_complete {
 
 ##
 function shell {
-   export -f contexts contexts_complete list expire deploy help kill log log_complete
+   export -f contexts contexts_complete list expire deploy help kill ps log log_complete
 
    export MANAGER_USER MANAGER_PASS MANAGER_URL CURL SCRIPT_NAME
    export PS1="${SCRIPT_NAME}> "
