@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Shell client of Tomcat's Manager App's text interface,
-# http://tomcat.apache.org/tomcat-7.0-doc/manager-howto.html
+# http://tomcat.apache.org/tomcat-8.0-doc/manager-howto.html
 #
 # If invoked without arguments it drops into an interactive subshell where the commands
 # are directly defined and commandline completion of webapp context paths are supported.
@@ -28,6 +28,8 @@
 #                    allow="127\.\d+\.\d+\.\d+|::1|0:0:0:0:0:0:0:1"/>
 #    </Context>
 #
+
+shopt -s extglob
 
 MANAGER_URL="http://localhost:8080/manager/text"
 MANAGER_USER=manager-script
@@ -134,7 +136,8 @@ function deploy {
 
 ##
 function expire {
-   local path="path=$1"
+   local path="path=${1%%##*}"
+   local version="&version=${1/#*([^#])*(#)}"
 
    local idle=
    if [ -n "$2" ]
@@ -142,18 +145,18 @@ function expire {
       local idle="&idle=$2"
    fi
 
-   $CURL "$MANAGER_URL/expire?$path$idle"
+   $CURL "$MANAGER_URL/expire?$path$version$idle"
 }
 
 ##
 function func_container {
-   eval "function $1 { $CURL $MANAGER_URL/$1; }"
+   eval "function $1 { $CURL \"$MANAGER_URL/$1\"; }"
    export -f $1
 }
 
 ##
 function func_context {
-   eval "function $1 { for path in "\$@"; do $CURL $MANAGER_URL/$1?path=\$path; done; }"
+   eval "function $1 { for path in "\$@"; do $CURL \"$MANAGER_URL/$1?path=\${path%%##*}&version=\${path/#*([^#])*(#)}\"; done; }"
    export -f $1
 }
 
@@ -161,16 +164,16 @@ function func_context {
 function list {
    $CURL "$MANAGER_URL/list" | awk -F: '\
       NR==1 && /^FAIL/ {print $0; exit}\
-      NR==2 {printf "%-30s %-7s %10s %-s\n", "context_path", "status ", "sessions", "docbase"}\
-      NR==2 {printf "%-30s %-7s %10s %-s\n", "------------", "-------", "--------", "-------"}\
-      NR >1 {printf "%-30s %-7s %10s %-s\n", $1, $2, $3, $4}'
+      NR==2 {printf "%-30s %-7s %10s %-s\n", "context path##version", "status ", "sessions", "docbase"}\
+      NR==2 {printf "%-30s %-7s %10s %-s\n", "---------------------", "-------", "--------", "-------"}\
+      NR >1 {n=split($4,ver,"##"); printf "%-30s %-7s %10s %-s\n", (n>1)?$1"##"ver[n]:$1, $2, $3, $4}'
 }
 
 ##
 function contexts {
    $CURL "$MANAGER_URL/list" | awk -F: '\
       NR==1 && /^FAIL/ {print $0; exit}\
-      NR >1 {printf "%s ", $1}'
+      NR >1 {n=split($4,ver,"##"); printf "%s ", (n>1)?$1"##"ver[n]:$1}'
 }
 
 ##
@@ -190,7 +193,7 @@ function kill {
 
 ##
 function ps {
-   pgrep -f 'org.apache.catalina.startup.Bootstrap' | xargs ps -f -p
+   pgrep -f 'org.apache.catalina.startup.Bootstrap' | xargs command ps -f -p
 }
 
 ##
@@ -239,6 +242,7 @@ function shell {
    trap "rm $RC_FILE" EXIT
 
    # completion is not inherited from the parent bash to the child bash
+   cat >> $RC_FILE <<<"shopt -s extglob"
    cat >> $RC_FILE <<<"complete -F contexts_complete expire start stop reload undeploy"
    cat >> $RC_FILE <<<"complete -F log_complete log"
 
