@@ -194,7 +194,7 @@ function kill {
 
 ##
 function ps {
-   pgrep -f 'org.apache.catalina.startup.Bootstrap' | xargs ps -fww -p
+   pgrep -f 'org.apache.catalina.startup.Bootstrap' | xargs ps -fww -p 2>/dev/null
 }
 
 ##
