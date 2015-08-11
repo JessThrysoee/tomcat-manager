@@ -235,7 +235,7 @@ function shell {
    export MANAGER_USER MANAGER_PASS MANAGER_URL CURL SCRIPT_NAME
    export PS1="${SCRIPT_NAME}> "
 
-   RC_FILE="$(mktemp -q "${TMPDIR:-/tmp/}$SCRIPT_NAME.XXXXXX")"
+   RC_FILE="$(mktemp -q "${TMPDIR:-/tmp}/$SCRIPT_NAME.XXXXXX")"
    if [[ $? -ne 0 ]]; then
       echo "$0: Can't create temp file, exiting..."
       exit 1
