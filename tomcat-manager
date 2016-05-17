@@ -162,19 +162,19 @@ function func_context {
 
 ##
 function list {
-   local w=50
+   local w=35
    $CURL "$MANAGER_URL/list" | awk -v w=$w -F: '\
       NR==1 && /^FAIL/ {print $0; exit}\
-      NR==2 {printf "%-"w"s %-7s %8s %-s\n", "context path##version", "status ", "sessions", "docbase"}\
-      NR==2 {printf "%-"w"s %-7s %8s %-s\n", "---------------------", "-------", "--------", "-------"}\
-      NR >1 {n=split($4,ver,"##"); printf "%-"w"s %-7s %8s %-s\n", (n>1)?$1"##"ver[n]:$1, $2, $3, $4 | "sort"}'
+      NR==2 {printf "%-"w"s %-7s %8s %-s\n", "context path", "status ", "sessions", "docbase"}\
+      NR==2 {printf "%-"w"s %-7s %8s %-s\n", "------------", "-------", "--------", "-------"}\
+      NR >1 {printf "%-"w"s %-7s %8s %-s\n", $1, $2, $3, $4 | "sort"}'
 }
 
 ##
 function contexts {
    $CURL "$MANAGER_URL/list" | awk -F: '\
       NR==1 && /^FAIL/ {print $0; exit}\
-      NR >1 {n=split($4,ver,"##"); printf "%s ", (n>1)?$1"##"ver[n]:$1}'
+      NR >1 {printf "%s ", $1}'
 }
 
 ##
